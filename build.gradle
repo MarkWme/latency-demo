@@ -1,3 +1,5 @@
+import org.gradle.api.file.DuplicatesStrategy
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'maven-publish'
@@ -9,7 +11,6 @@ subprojects {
         mavenCentral()
     }
 
-    // Tiny bit of code so there is something to compile
     sourceSets {
         main {
             java {
@@ -35,18 +36,22 @@ subprojects {
         }
     }
 
-    // Make sure compileJava has something to compile
+    // Ensure both compileJava and sourcesJar see generated sources
     tasks.named('compileJava') {
         dependsOn tasks.named('generateSource')
     }
 
+    tasks.withType(Jar).matching { it.name == 'sourcesJar' }.configureEach {
+        dependsOn tasks.named('generateSource')
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+
     java {
-        // simple jar
         withJavadocJar()
         withSourcesJar()
     }
 
-    // Publishing config
     publishing {
         publications {
             mavenJava(MavenPublication) {
@@ -57,13 +62,11 @@ subprojects {
             maven {
                 name = "target"
                 url = uri(findProperty('repoUrl') ?: 'http://localhost:8081/repository/maven-releases/')
-                allowInsecureProtocol = true // OK for local Nexus; remove for HTTPS
+                allowInsecureProtocol = true
 
-                if (hasProperty('repoUser') && hasProperty('repoPassword')) {
-                    credentials {
-                        username = findProperty('repoUser')
-                        password = findProperty('repoPassword')
-                    }
+                credentials {
+                    username = findProperty('repoUser')
+                    password = findProperty('repoPassword')
                 }
             }
         }
