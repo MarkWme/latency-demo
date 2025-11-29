@@ -1,0 +1,71 @@
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+
+    group = 'com.example.latency'
+    version = '1.0.0'
+
+    repositories {
+        mavenCentral()
+    }
+
+    // Tiny bit of code so there is something to compile
+    sourceSets {
+        main {
+            java {
+                srcDir 'src/main/java'
+            }
+        }
+    }
+
+    tasks.register('generateSource') {
+        def pkgDir = file("src/main/java/com/example/latency/${project.name.replace('-', '')}")
+        inputs.property("moduleName", project.name)
+        outputs.dir(pkgDir)
+        doLast {
+            pkgDir.mkdirs()
+            def cls = new File(pkgDir, "Hello${project.name.capitalize().replace('-', '')}.java")
+            cls.text = """
+                package com.example.latency.${project.name.replace('-', '')};
+
+                public class Hello${project.name.capitalize().replace('-', '')} {
+                    public static String msg() { return "${project.name}"; }
+                }
+            """.stripIndent().trim()
+        }
+    }
+
+    // Make sure compileJava has something to compile
+    tasks.named('compileJava') {
+        dependsOn tasks.named('generateSource')
+    }
+
+    java {
+        // simple jar
+        withJavadocJar()
+        withSourcesJar()
+    }
+
+    // Publishing config
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                name = "target"
+                url = uri(findProperty('repoUrl') ?: 'http://localhost:8081/repository/maven-releases/')
+                allowInsecureProtocol = true // OK for local Nexus; remove for HTTPS
+
+                if (hasProperty('repoUser') && hasProperty('repoPassword')) {
+                    credentials {
+                        username = findProperty('repoUser')
+                        password = findProperty('repoPassword')
+                    }
+                }
+            }
+        }
+    }
+}
